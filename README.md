@@ -1,4 +1,4 @@
-# RxAI: Reactive Extensions for AI
+# RxAI: the RX.Net way to AI
 
 RxAI is a C# library that provides a reactive programming interface for interacting with OpenAI and Azure Realtime API. It simplifies the process of creating real-time, interactive AI-powered applications using Reactive Extensions (Rx).
 
