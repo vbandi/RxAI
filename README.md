@@ -10,6 +10,9 @@ RxAI is a C# library that provides a reactive programming interface for interact
 - Built-in cost tracking and management
 - Customizable conversation options
 
+![image](https://github.com/user-attachments/assets/d256131f-f3c6-4fef-b596-0754458ef7de)
+
+
 ## Project Structure
 
 The RxAI solution consists of two main projects:
