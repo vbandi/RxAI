@@ -30,8 +30,12 @@ await conversation.InitializeSessionAsync(options, FunctionCallingHelper.GetFunc
 
 // Transcription updates
 conversation.InputTranscriptionFinishedUpdates.Subscribe(t => Console.WriteLine(t.Transcript));
-conversation.OutputTranscriptionFinishedUpdates.Subscribe(_ => Console.WriteLine());
+conversation.OutputTranscriptionFinishedUpdates.Subscribe(u => Console.WriteLine());
 conversation.OutputTranscriptionDeltaUpdates.Subscribe(u => Console.Write(u.Delta));
+
+// Function updates
+conversation.FunctionCallStarted.Subscribe(f => Console.WriteLine($"Function call: {f.Name}({f.Arguments})"));
+conversation.FunctionCallEnded.Subscribe(f => Console.WriteLine($"Function call finished: {f.result}"));
 
 // Cost updates
 conversation.SetupCost(5f / 1_000_000, 20f / 1_000_000, 100f / 1_000_000, 200f / 1_000_000);
@@ -42,10 +46,9 @@ SpeakerOutput speakerOutput = new();
 conversation.AudioDeltaUpdates.Subscribe(d => speakerOutput.EnqueueForPlayback(d.Delta));
 
 // Setup microphone input
-//MicrophoneAudioStream microphone = MicrophoneAudioStream.Start();
-//await conversation.SendAudioAsync(microphone);
+MicrophoneAudioStream microphone = MicrophoneAudioStream.Start();
+await conversation.SendAudioAsync(microphone);
 
-await conversation.SendUserMessageAsync("Add 2 random numbers");
 await conversation.StartResponseTurnAsync();
 
 Console.WriteLine("Starting conversation...");

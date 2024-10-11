@@ -323,8 +323,6 @@ public static class FunctionCallingHelper
             Parameters = BinaryData.FromString(JsonSerializer.Serialize(parametersSchema))
         };
 
-        Console.WriteLine(result.Parameters.ToString());
-
         return result;
     }
 

@@ -19,7 +19,7 @@ public class RealtimeConversationClientRX
     private readonly Subject<ConversationUpdate> _updates = new();
     private readonly Dictionary<string, FunctionDefinition> _functionDefinitions = [];
     private readonly Subject<FunctionCall> _functionCallStarted = new();
-    private readonly Subject<(FunctionCall functionCall, string? result)> _functionCallEnded = new();
+      private readonly Subject<(FunctionCall functionCall, string? result)> _functionCallEnded = new();
 
     public IObservable<ConversationUpdate> Updates => _updates.AsObservable();
     public IObservable<ConversationSessionStartedUpdate> SessionStartedUpdates => _updates.OfType<ConversationSessionStartedUpdate>().AsObservable();
@@ -55,9 +55,9 @@ public class RealtimeConversationClientRX
     public float TextOutputPrice { get; set; }
     public float AudioInputPrice { get; set; }
     public float AudioOutputPrice { get; set; }
-
+    
     public BehaviorSubject<float> TotalCost { get; } = new(0);
-
+    
     /// <summary>
     /// Initializes a new instance of the <see cref="RealtimeConversationClientRX"/> class.
     /// </summary>
@@ -313,11 +313,9 @@ public class RealtimeConversationClientRX
     {
         if (!_functionDefinitions.TryGetValue(update.FunctionName, out var functionDefinition))
         {
-            Console.WriteLine($"Function '{update.FunctionName}' not found in function definitions.");
+            Console.WriteLine($"Function '{update.FunctionName}' not found in function definitions.");  // TODO: use iobservable instead of Console
             return;
         }
-
-        Console.WriteLine($"Function call: {update.FunctionName} ({update.FunctionCallArguments})...");
 
         var functionCall = new FunctionCall { Name = update.FunctionName, Arguments = update.FunctionCallArguments };
 
