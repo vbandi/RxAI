@@ -1,10 +1,10 @@
-﻿using System.Diagnostics.CodeAnalysis;
+﻿#pragma warning disable OPENAI002 // Type is for evaluation purposes only and is subject to change or removal in future updates.
+
+using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using OpenAI.RealtimeConversation;
-
-#pragma warning disable OPENAI002 // Type is for evaluation purposes only and is subject to change or removal in future updates.
 
 namespace RxAI.Realtime.FunctionCalling;
 
@@ -190,9 +190,7 @@ public static class FunctionCallingHelper
         bool allowPartialArguments)
     {
         ArgumentNullException.ThrowIfNull(functionCall);
-
         functionCall.ThrowIfNameIsNull();
-
         var obj = functionDefinition.GetOwnerOrThrow();
 
         var methodInfo = FindMethod(obj, functionCall.Name);

@@ -35,7 +35,7 @@ conversation.OutputTranscriptionDeltaUpdates.Subscribe(u => Console.Write(u.Delt
 
 // Function updates
 conversation.FunctionCallStarted.Subscribe(f => Console.WriteLine($"Function call: {f.Name}({f.Arguments})"));
-conversation.FunctionCallEnded.Subscribe(f => Console.WriteLine($"Function call finished: {f.result}"));
+conversation.FunctionCallFinished.Subscribe(f => Console.WriteLine($"Function call finished: {f.result}"));
 
 // Cost updates
 conversation.SetupCost(5f / 1_000_000, 20f / 1_000_000, 100f / 1_000_000, 200f / 1_000_000);

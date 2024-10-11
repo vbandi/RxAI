@@ -12,52 +12,20 @@ namespace RxAI.Realtime;
 /// <summary>
 /// A reactive wrapper around <see cref="RealtimeConversationClient"/>.
 /// </summary>
-public class RealtimeConversationClientRX
+public partial class RealtimeConversationClientRX
 {
     private readonly RealtimeConversationClient _client;
     private RealtimeConversationSession? _session;
     private readonly Subject<ConversationUpdate> _updates = new();
     private readonly Dictionary<string, FunctionDefinition> _functionDefinitions = [];
     private readonly Subject<FunctionCall> _functionCallStarted = new();
-      private readonly Subject<(FunctionCall functionCall, string? result)> _functionCallEnded = new();
-
-    public IObservable<ConversationUpdate> Updates => _updates.AsObservable();
-    public IObservable<ConversationSessionStartedUpdate> SessionStartedUpdates => _updates.OfType<ConversationSessionStartedUpdate>().AsObservable();
-    public IObservable<ConversationAudioDeltaUpdate> AudioDeltaUpdates => _updates.OfType<ConversationAudioDeltaUpdate>().AsObservable();
-    public IObservable<ConversationAudioDoneUpdate> AudioDoneUpdates => _updates.OfType<ConversationAudioDoneUpdate>().AsObservable();
-    public IObservable<ConversationContentPartFinishedUpdate> PartFinishedUpdates => _updates.OfType<ConversationContentPartFinishedUpdate>().AsObservable();
-    public IObservable<ConversationContentPartStartedUpdate> ContentPartStartedUpdates => _updates.OfType<ConversationContentPartStartedUpdate>().AsObservable();
-    public IObservable<ConversationErrorUpdate> ErrorUpdates => _updates.OfType<ConversationErrorUpdate>().AsObservable();
-    public IObservable<ConversationFunctionCallArgumentsDoneUpdate> FunctionCallArgumentsDoneUpdates => _updates.OfType<ConversationFunctionCallArgumentsDoneUpdate>().AsObservable();
-    public IObservable<ConversationFunctionCallArgumentsDeltaUpdate> FunctionCallArgumentsDeltaUpdates => _updates.OfType<ConversationFunctionCallArgumentsDeltaUpdate>().AsObservable();
-    public IObservable<ConversationInputAudioBufferClearedUpdate> InputAudioBufferClearedUpdates => _updates.OfType<ConversationInputAudioBufferClearedUpdate>().AsObservable();
-    public IObservable<ConversationInputAudioBufferCommittedUpdate> InputAudioBufferCommittedUpdates => _updates.OfType<ConversationInputAudioBufferCommittedUpdate>().AsObservable();
-    public IObservable<ConversationInputSpeechFinishedUpdate> InputSpeechFinishedUpdates => _updates.OfType<ConversationInputSpeechFinishedUpdate>().AsObservable();
-    public IObservable<ConversationInputSpeechStartedUpdate> InputSpeechStartedUpdates => _updates.OfType<ConversationInputSpeechStartedUpdate>().AsObservable();
-    public IObservable<ConversationInputTranscriptionFailedUpdate> InputTranscriptionFailedUpdates => _updates.OfType<ConversationInputTranscriptionFailedUpdate>().AsObservable();
-    public IObservable<ConversationInputTranscriptionFinishedUpdate> InputTranscriptionFinishedUpdates => _updates.OfType<ConversationInputTranscriptionFinishedUpdate>().AsObservable();
-    public IObservable<ConversationItemDeletedUpdate> ItemDeletedUpdates => _updates.OfType<ConversationItemDeletedUpdate>().AsObservable();
-    public IObservable<ConversationItemFinishedUpdate> ItemFinishedUpdates => _updates.OfType<ConversationItemFinishedUpdate>().AsObservable();
-    public IObservable<ConversationItemStartedUpdate> ItemStartedUpdates => _updates.OfType<ConversationItemStartedUpdate>().AsObservable();
-    public IObservable<ConversationOutputTranscriptionDeltaUpdate> OutputTranscriptionDeltaUpdates => _updates.OfType<ConversationOutputTranscriptionDeltaUpdate>().AsObservable();
-    public IObservable<ConversationOutputTranscriptionFinishedUpdate> OutputTranscriptionFinishedUpdates => _updates.OfType<ConversationOutputTranscriptionFinishedUpdate>().AsObservable();
-    public IObservable<ConversationResponseFinishedUpdate> ResponseFinishedUpdates => _updates.OfType<ConversationResponseFinishedUpdate>().AsObservable();
-    public IObservable<ConversationResponseStartedUpdate> ResponseStartedUpdates => _updates.OfType<ConversationResponseStartedUpdate>().AsObservable();
-    public IObservable<ConversationSessionConfiguredUpdate> SessionConfiguredUpdates => _updates.OfType<ConversationSessionConfiguredUpdate>().AsObservable();
-    public IObservable<ConversationTextDeltaUpdate> TextDeltaUpdates => _updates.OfType<ConversationTextDeltaUpdate>().AsObservable();
-    public IObservable<ConversationTextDoneUpdate> TextDoneUpdates => _updates.OfType<ConversationTextDoneUpdate>().AsObservable();
-    public IObservable<FunctionCall> FunctionCallStarted => _functionCallStarted.AsObservable();
-    public IObservable<(FunctionCall functionCall, string? result)> FunctionCallEnded => _functionCallEnded.AsObservable();
-
-    public BehaviorSubject<Usage?> Usages { get; } = new(new Usage());
+    private readonly Subject<(FunctionCall functionCall, string? result)> _functionCallFinished = new();
 
     public float TextInputPrice { get; set; }
     public float TextOutputPrice { get; set; }
     public float AudioInputPrice { get; set; }
     public float AudioOutputPrice { get; set; }
-    
-    public BehaviorSubject<float> TotalCost { get; } = new(0);
-    
+
     /// <summary>
     /// Initializes a new instance of the <see cref="RealtimeConversationClientRX"/> class.
     /// </summary>
@@ -320,13 +288,10 @@ public class RealtimeConversationClientRX
         var functionCall = new FunctionCall { Name = update.FunctionName, Arguments = update.FunctionCallArguments };
 
         _functionCallStarted.OnNext(functionCall);
-
         var result = (await FunctionCallingHelper.CallFunctionAsync<object>(functionCall, functionDefinition))?.ToString() ?? "null";
-
-        _functionCallEnded.OnNext((functionCall, result));
+        _functionCallFinished.OnNext((functionCall, result));
 
         await SendFunctionMessageAsync(update.FunctionCallId, result);
-
         await StartResponseTurnAsync();
     }
 
