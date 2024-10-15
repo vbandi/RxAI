@@ -23,6 +23,16 @@ public class FunctionDefinition
     public FunctionParameters? Parameters { get; set; }
 
     /// <summary>
+    /// Gets or sets the type of the function Owner.
+    /// </summary>
+    public Type? OwnerType { get; set; }
+
+    /// <summary>
+    /// Indicates whether the owner of the function is static.
+    /// </summary>
+    public bool IsOwnerStatic => OwnerType?.IsAbstract == true && OwnerType.IsSealed;
+
+    /// <summary>
     /// Gets or sets a weak reference to the owner object of the function.
     /// </summary>
     public WeakReference<object>? Owner { get; set; }

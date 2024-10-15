@@ -25,8 +25,7 @@ ConversationSessionOptions options = new()
 };
 
 // Initialize the conversation
-var calculator = new Calculator();
-await conversation.InitializeSessionAsync(options, FunctionCallingHelper.GetFunctionDefinitions(calculator));
+await conversation.InitializeSessionAsync(options, FunctionCallingHelper.GetFunctionDefinitions(typeof(Calculator)));
 
 // Transcription updates
 conversation.InputTranscriptionFinishedUpdates.Subscribe(t => Console.WriteLine(t.Transcript));
@@ -58,21 +57,17 @@ while (true)
     await Task.Delay(10);
 }
 
-public class Calculator
+public static class Calculator
 {
     [FunctionDescription("Get a random number within a specified range")]
     public static int GetRandomNumber(
         [ParameterDescription("min")] int min,
         [ParameterDescription("max")] int max)
-    {
-        return new Random().Next(min, max);
-    }
+        => new Random().Next(min, max);
 
     [FunctionDescription("Add two numbers together")]
     public static int Add(
         [ParameterDescription("The first number to add")] int a,
         [ParameterDescription("The second number to add")] int b)
-    {
-        return a + b;
-    }
+        => a + b;
 }
