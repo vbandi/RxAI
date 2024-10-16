@@ -59,33 +59,6 @@ public static class FunctionCallingHelper
     }
 
     /// <summary>
-    /// Creates a <see cref="FunctionProperty"/> based on the parameter type and attributes.
-    /// </summary>
-    /// <param name="parameter">The parameter info.</param>
-    /// <param name="parameterDescriptionAttribute">The parameter description attribute.</param>
-    /// <param name="description">The parameter description.</param>
-    /// <returns>A <see cref="FunctionProperty"/> object.</returns>
-    private static FunctionProperty CreateFunctionProperty(ParameterInfo parameter, ParameterDescriptionAttribute? parameterDescriptionAttribute, string? description)
-    {
-        return parameter.ParameterType switch
-        {
-            var t when t == typeof(int) => new FunctionProperty { Type = "integer", Description = description },
-            var t when t == typeof(float) || t == typeof(double) => new FunctionProperty { Type = "number", Description = description },
-            var t when t == typeof(bool) => new FunctionProperty { Type = "boolean", Description = description },
-            var t when t == typeof(string) => new FunctionProperty { Type = "string", Description = description },
-            var t when t.IsEnum => new FunctionProperty
-            {
-                Type = "string",
-                Enum = string.IsNullOrEmpty(parameterDescriptionAttribute?.Enum) ?
-                    [.. Enum.GetNames(parameter.ParameterType)] :
-                    parameterDescriptionAttribute.Enum.Split(",").Select(x => x.Trim()).ToList(),
-                Description = description
-            },
-            _ => throw new Exception($"Parameter type '{parameter.ParameterType}' not supported")
-        };
-    }
-
-    /// <summary>
     /// Enumerates the methods in the provided object, and returns a <see cref="List{T}"/> of
     /// <see cref="FunctionDefinition"/> for all methods marked with a <see cref="FunctionDescriptionAttribute"/>.
     /// </summary>
@@ -179,6 +152,33 @@ public static class FunctionCallingHelper
         {
             return (T?)invocationResult;
         }
+    }
+
+    /// <summary>
+    /// Creates a <see cref="FunctionProperty"/> based on the parameter type and attributes.
+    /// </summary>
+    /// <param name="parameter">The parameter info.</param>
+    /// <param name="parameterDescriptionAttribute">The parameter description attribute.</param>
+    /// <param name="description">The parameter description.</param>
+    /// <returns>A <see cref="FunctionProperty"/> object.</returns>
+    private static FunctionProperty CreateFunctionProperty(ParameterInfo parameter, ParameterDescriptionAttribute? parameterDescriptionAttribute, string? description)
+    {
+        return parameter.ParameterType switch
+        {
+            var type when IsIntegerType(type) => new FunctionProperty { Type = "integer", Description = description },
+            var type when IsNumberType(type) => new FunctionProperty { Type = "number", Description = description },
+            var type when type == typeof(bool) => new FunctionProperty { Type = "boolean", Description = description },
+            var type when IsStringType(type) => new FunctionProperty { Type = "string", Description = description },
+            var type when type.IsEnum => new FunctionProperty
+            {
+                Type = "string",
+                Enum = string.IsNullOrEmpty(parameterDescriptionAttribute?.Enum) ?
+                    [.. Enum.GetNames(parameter.ParameterType)] :
+                    parameterDescriptionAttribute.Enum.Split(",").Select(x => x.Trim()).ToList(),
+                Description = description
+            },
+            _ => throw new Exception($"Parameter type '{parameter.ParameterType}' not supported")
+        };
     }
 
     /// <summary>
@@ -308,13 +308,6 @@ public static class FunctionCallingHelper
     }
 
     /// <summary>
-    /// Gets the available enum values as a comma-separated string.
-    /// </summary>
-    /// <param name="enumType">The enum type.</param>
-    /// <returns>A string containing all available enum values.</returns>
-    private static string GetEnumOptionsAsString(Type enumType) => string.Join(", ", Enum.GetNames(enumType));
-
-    /// <summary>
     /// Checks if the return type is compatible with the provided type.
     /// </summary>
     /// <typeparam name="T">The return type.</typeparam>
@@ -397,6 +390,51 @@ public static class FunctionCallingHelper
 
         return result;
     }
+
+    /// <summary>
+    /// Gets the available enum values as a comma-separated string.
+    /// </summary>
+    /// <param name="enumType">The enum type.</param>
+    /// <returns>A string containing all available enum values.</returns>
+    private static string GetEnumOptionsAsString(Type enumType) => string.Join(", ", Enum.GetNames(enumType));
+
+    /// <summary>
+    /// Checks if the provided type is compatible with an integer type.
+    /// </summary>
+    /// <param name="type"> The type to check.</param>
+    /// <returns><c>true</c> if the type is compatible with an integer type, <c>false</c> otherwise.</returns>
+    private static bool IsIntegerType(Type type)
+        => type == typeof(int)
+        || type == typeof(short)
+        || type == typeof(long)
+        || type == typeof(byte)
+        || type == typeof(sbyte)
+        || type == typeof(ushort)
+        || type == typeof(uint)
+        || type == typeof(ulong);
+
+    /// <summary>
+    /// Checks if the provided type is compatible with a number type.
+    /// </summary>
+    /// <param name="type">The type to check.</param>
+    /// <returns><c>true</c> if the type is compatible with a number type, <c>false</c> otherwise.</returns>
+    private static bool IsNumberType(Type type)
+        => type == typeof(float)
+        || type == typeof(double)
+        || type == typeof(decimal);
+
+    /// <summary>
+    /// Checks if the provided type is compatible with a string type.
+    /// </summary>
+    /// <param name="type">The type to check.</param>
+    /// <returns><c>true</c> if the type is compatible with a string type, <c>false</c> otherwise.</returns>
+    private static bool IsStringType(Type type)
+        => type == typeof(string)
+        || type == typeof(DateTime)
+        || type == typeof(DateTimeOffset)
+        || type == typeof(Guid)
+        || type == typeof(Uri)
+        || type == typeof(TimeSpan);
 }
 
 /// <summary>
