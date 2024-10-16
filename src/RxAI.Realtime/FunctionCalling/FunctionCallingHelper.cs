@@ -1,4 +1,4 @@
-﻿#pragma warning disable OPENAI002 // Type is for evaluation purposes only and is subject to change or removal in future updates.
+﻿#pragma warning disable OPENAI002
 
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
@@ -284,16 +284,35 @@ public static class FunctionCallingHelper
             }
             else
             {
-                var value = parameter.ParameterType.IsEnum
-                    ? Enum.Parse(parameter.ParameterType, argument.Value.ToString()!)
-                    : ((JsonElement)argument.Value).Deserialize(parameter.ParameterType);
-
-                args.Add(value);
+                if (parameter.ParameterType.IsEnum)
+                {
+                    if (Enum.TryParse(parameter.ParameterType, argument.Value.ToString(), true, out object? enumValue))
+                    {
+                        args.Add(enumValue);
+                    }
+                    else
+                    {
+                        var availableOptions = GetEnumOptionsAsString(parameter.ParameterType);
+                        throw new InvalidFunctionCallException($"Invalid enum value for parameter '{name}'. Available options are: {availableOptions}");
+                    }
+                }
+                else
+                {
+                    var value = ((JsonElement)argument.Value).Deserialize(parameter.ParameterType);
+                    args.Add(value);
+                }
             }
         }
 
         return args;
     }
+
+    /// <summary>
+    /// Gets the available enum values as a comma-separated string.
+    /// </summary>
+    /// <param name="enumType">The enum type.</param>
+    /// <returns>A string containing all available enum values.</returns>
+    private static string GetEnumOptionsAsString(Type enumType) => string.Join(", ", Enum.GetNames(enumType));
 
     /// <summary>
     /// Checks if the return type is compatible with the provided type.

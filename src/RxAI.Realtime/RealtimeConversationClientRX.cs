@@ -288,11 +288,22 @@ public partial class RealtimeConversationClientRX
         var functionCall = new FunctionCall { Name = update.FunctionName, Arguments = update.FunctionCallArguments };
 
         _functionCallStarted.OnNext(functionCall);
-        var result = (await FunctionCallingHelper.CallFunctionAsync<object>(functionCall, functionDefinition))?.ToString() ?? "null";
-        _functionCallFinished.OnNext((functionCall, result));
 
-        await SendFunctionMessageAsync(update.FunctionCallId, result);
-        await StartResponseTurnAsync();
+        try
+        {
+            var result = (await FunctionCallingHelper.CallFunctionAsync<object>(functionCall, functionDefinition))?.ToString() ?? "null";
+
+            _functionCallFinished.OnNext((functionCall, result));
+
+            await SendFunctionMessageAsync(update.FunctionCallId, result);
+            await StartResponseTurnAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error calling function '{update.FunctionName}': {ex.Message}");
+            await SendFunctionMessageAsync(update.FunctionCallId, $"An error occured during function execution. Message: {ex.Message}");
+            await StartResponseTurnAsync();
+        }
     }
 
     /// <summary>
