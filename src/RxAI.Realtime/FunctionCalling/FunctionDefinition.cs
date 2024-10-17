@@ -28,11 +28,6 @@ public class FunctionDefinition
     public Type? OwnerType { get; set; }
 
     /// <summary>
-    /// Indicates whether the owner of the function is static.
-    /// </summary>
-    public bool IsOwnerStatic => OwnerType?.IsAbstract == true && OwnerType.IsSealed;
-
-    /// <summary>
     /// Gets or sets a weak reference to the owner object of the function.
     /// </summary>
     public WeakReference<object>? Owner { get; set; }
@@ -42,15 +37,6 @@ public class FunctionDefinition
     {
         if (Name is null)
             throw new InvalidFunctionCallException("Function name is null");
-    }
-
-    [MemberNotNull(nameof(Owner))]
-    public object GetOwnerOrThrow()
-    {
-        if (Owner == null || !Owner.TryGetTarget(out var owner))
-            throw new InvalidFunctionCallException("Function owner object is no longer available");
-
-        return owner;
     }
 }
 
