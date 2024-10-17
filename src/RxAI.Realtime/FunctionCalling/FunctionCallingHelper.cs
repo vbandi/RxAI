@@ -1,4 +1,4 @@
-﻿#pragma warning disable OPENAI002 // Type is for evaluation purposes only and is subject to change or removal in future updates.
+﻿#pragma warning disable OPENAI002
 
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
@@ -33,6 +33,7 @@ public static class FunctionCallingHelper
                 Properties = [],
                 Required = []
             },
+            OwnerType = methodInfo.DeclaringType,
             Owner = obj != null ? new WeakReference<object>(obj) : null
         };
 
@@ -43,7 +44,7 @@ public static class FunctionCallingHelper
             var parameterDescriptionAttribute = parameter.GetCustomAttribute<ParameterDescriptionAttribute>();
             var description = parameterDescriptionAttribute?.Description;
 
-            FunctionProperty property = CreateFunctionProperty(parameter, parameterDescriptionAttribute, description);
+            var property = CreateFunctionProperty(parameter, parameterDescriptionAttribute, description);
 
             result.Parameters.Properties.Add(
                 parameterDescriptionAttribute?.Name ?? parameter.Name!,
@@ -54,33 +55,6 @@ public static class FunctionCallingHelper
         }
 
         return result;
-    }
-
-    /// <summary>
-    /// Creates a <see cref="FunctionProperty"/> based on the parameter type and attributes.
-    /// </summary>
-    /// <param name="parameter">The parameter info.</param>
-    /// <param name="parameterDescriptionAttribute">The parameter description attribute.</param>
-    /// <param name="description">The parameter description.</param>
-    /// <returns>A <see cref="FunctionProperty"/> object.</returns>
-    private static FunctionProperty CreateFunctionProperty(ParameterInfo parameter, ParameterDescriptionAttribute? parameterDescriptionAttribute, string? description)
-    {
-        return parameter.ParameterType switch
-        {
-            var t when t == typeof(int) => new FunctionProperty { Type = "integer", Description = description },
-            var t when t == typeof(float) || t == typeof(double) => new FunctionProperty { Type = "number", Description = description },
-            var t when t == typeof(bool) => new FunctionProperty { Type = "boolean", Description = description },
-            var t when t == typeof(string) => new FunctionProperty { Type = "string", Description = description },
-            var t when t.IsEnum => new FunctionProperty
-            {
-                Type = "string",
-                Enum = string.IsNullOrEmpty(parameterDescriptionAttribute?.Enum) ?
-                    [.. Enum.GetNames(parameter.ParameterType)] :
-                    parameterDescriptionAttribute.Enum.Split(",").Select(x => x.Trim()).ToList(),
-                Description = description
-            },
-            _ => throw new Exception($"Parameter type '{parameter.ParameterType}' not supported")
-        };
     }
 
     /// <summary>
@@ -104,15 +78,15 @@ public static class FunctionCallingHelper
     public static List<FunctionDefinition> GetFunctionDefinitions<T>() => GetFunctionDefinitions(typeof(T));
 
     /// <summary>
-    /// Enumerates the methods in the provided type, and returns a <see cref="List{T}"/> of
-    /// <see cref="FunctionDefinition"/> for all methods.
+    /// Enumerates the static and instance methods in the provided type, and returns a <see cref="List{T}"/> of
+    /// <see cref="FunctionDefinition"/> for all methods. Instance methods are only added if an object instance is provided.
     /// </summary>
     /// <param name="type">The type to analyze.</param>
-    /// <param name="obj">Optional object instance for non-static methods.</param>
+    /// <param name="obj">Optional object instance for instance methods.</param>
     /// <returns>A list of <see cref="FunctionDefinition"/> objects.</returns>
     public static List<FunctionDefinition> GetFunctionDefinitions(Type type, object? obj = null)
     {
-        var methods = type.GetMethods();
+        var methods = type.GetMethods(BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.FlattenHierarchy | BindingFlags.Static | (obj != null ? BindingFlags.Instance : 0));
 
         var result = methods
             .Where(method => method.GetCustomAttribute<FunctionDescriptionAttribute>() != null)
@@ -155,24 +129,56 @@ public static class FunctionCallingHelper
     {
         var (obj, methodInfo, args) = PrepareMethodInvocation<T>(functionCall, functionDefinition, allowPartialArguments);
 
+        var invocationResult = methodInfo.Invoke(functionDefinition.Owner, [.. args]);
+
         var returnType = methodInfo.ReturnType;
 
         if (returnType == typeof(Task)) // Task type
         {
-            await (Task)methodInfo.Invoke(obj, [.. args])!;
+            await (Task)invocationResult!;
             return default;
         }
-        else if (returnType.IsGenericType && returnType.GetGenericTypeDefinition() == typeof(Task<>)) // Generic Task type
+
+        if (returnType.IsGenericType && returnType.GetGenericTypeDefinition() == typeof(Task<>)) // Generic Task<T> type
         {
-            var resultTask = (Task)methodInfo.Invoke(obj, [.. args])!;
-            await resultTask;
-            var resultProperty = resultTask.GetType().GetProperty("Result");
-            return (T?)resultProperty?.GetValue(resultTask);
+            var task = (Task)invocationResult!;
+            await task;
+
+            var resultProperty = task.GetType().GetProperty("Result");
+            return (T?)resultProperty?.GetValue(task);
         }
-        else // Non-Task type
+
+        // Non-Task type
+        return (T?)invocationResult;
+    }
+
+    /// <summary>
+    /// Creates a <see cref="FunctionProperty"/> based on the parameter type and attributes.
+    /// </summary>
+    /// <param name="parameter">The parameter info.</param>
+    /// <param name="parameterDescriptionAttribute">The parameter description attribute.</param>
+    /// <param name="description">The parameter description.</param>
+    /// <returns>A <see cref="FunctionProperty"/> object.</returns>
+    private static FunctionProperty CreateFunctionProperty(ParameterInfo parameter, ParameterDescriptionAttribute? parameterDescriptionAttribute, string? description)
+    {
+        FunctionProperty result = parameter.ParameterType switch
         {
-            return (T?)methodInfo.Invoke(obj, [.. args]);
-        }
+            var type when IsIntegerType(type) => new() { Type = "integer", Description = description },
+            var type when IsNumberType(type) => new() { Type = "number", Description = description },
+            var type when type == typeof(bool) => new() { Type = "boolean", Description = description },
+            var type when IsStringType(type) => new () { Type = "string", Description = description },
+            var type when type.IsEnum => new()
+            {
+                Type = "string",
+                Enum = string.IsNullOrEmpty(parameterDescriptionAttribute?.Enum) ?
+                    [.. Enum.GetNames(parameter.ParameterType)] :
+                    parameterDescriptionAttribute.Enum.Split(",").Select(x => x.Trim()).ToList(),
+                Description = description
+            },
+            _ => throw new Exception($"Parameter type '{parameter.ParameterType}' not supported")
+        };
+
+        return result;
     }
 
     /// <summary>
@@ -184,32 +190,31 @@ public static class FunctionCallingHelper
     /// <param name="allowPartialArguments">Whether to allow partial arguments.</param>
     /// <returns>A tuple containing the object, <see cref="MethodInfo"/>, and arguments.</returns>
     /// <exception cref="InvalidFunctionCallException">If the method is not found, the return type is incompatible, or the arguments are invalid.</exception>
-    private static (object obj, MethodInfo methodInfo, List<object?> args) PrepareMethodInvocation<T>(
+    private static (object? obj, MethodInfo methodInfo, List<object?> args) PrepareMethodInvocation<T>(
         FunctionCall functionCall,
         FunctionDefinition functionDefinition,
         bool allowPartialArguments)
     {
         ArgumentNullException.ThrowIfNull(functionCall);
         functionCall.ThrowIfNameIsNull();
-        var obj = functionDefinition.GetOwnerOrThrow();
 
-        var methodInfo = FindMethod(obj, functionCall.Name);
+        object? obj = functionDefinition.Owner;
+        
+        var methodInfo = obj == null ? FindMethod(functionDefinition.OwnerType!, functionCall.Name) : FindMethod(obj, functionCall.Name);
 
         if (!IsCompatibleReturnType<T>(methodInfo.ReturnType))
         {
             throw new InvalidFunctionCallException(
-                $"Method '{functionCall.Name}' on type '{obj.GetType()}' has return type '{methodInfo.ReturnType}' but expected '{typeof(T)}' or Task<{typeof(T)}>");
+                $"Method '{functionCall.Name}' on type '{(obj is null ? functionDefinition.OwnerType! : obj.GetType())}' has return type '{methodInfo.ReturnType}' but expected '{typeof(T)}' or Task<{typeof(T)}>");
         }
 
         var parameters = methodInfo.GetParameters().ToList();
 
-        if (TryParseArguments(functionCall.Arguments, out var arguments, allowPartialArguments ? "\"}" : null))
-        {
-            var args = PrepareArguments(parameters, arguments);
-            return (obj, methodInfo, args);
-        }
+        if (!TryParseArguments(functionCall.Arguments, out var arguments, allowPartialArguments ? "\"}" : null))
+            throw new InvalidFunctionCallException("Failed to parse function arguments.");
 
-        throw new InvalidFunctionCallException("Failed to parse function arguments.");
+        var args = PrepareArguments(parameters, arguments);
+        return (obj, methodInfo, args);
     }
 
     /// <summary>
@@ -221,11 +226,26 @@ public static class FunctionCallingHelper
     /// <exception cref="InvalidFunctionCallException">If the method is not found.</exception>
     private static MethodInfo FindMethod(object obj, string functionName)
     {
-        return obj.GetType().GetMethod(functionName)
+        if (obj is null)
+            throw new InvalidFunctionCallException("Object is null.");
+
+        return FindMethod(obj.GetType(), functionName);
+    }
+
+    /// <summary>
+    /// Finds the method in the type based on the function name.
+    /// </summary>
+    /// <param name="type">The type containing the method.</param>
+    /// <param name="functionName">The name of the function to find.</param>
+    /// <returns>The <see cref="MethodInfo"/> of the found method.</returns>
+    /// <exception cref="InvalidFunctionCallException">If the method is not found.</exception>
+    private static MethodInfo FindMethod(Type type, string functionName)
+    {
+        return type.GetMethod(functionName)
             ?? Array.Find(
-                obj.GetType().GetMethods(),
+                type.GetMethods(),
                 methodInfo => methodInfo.GetCustomAttribute<FunctionDescriptionAttribute>()?.Name == functionName)
-            ?? throw new InvalidFunctionCallException($"Method '{functionName}' on type '{obj.GetType()}' not found.");
+            ?? throw new InvalidFunctionCallException($"Method '{functionName}' on type '{type.GetType()}' not found.");
     }
 
     /// <summary>
@@ -252,11 +272,23 @@ public static class FunctionCallingHelper
             }
             else
             {
-                var value = parameter.ParameterType.IsEnum
-                    ? Enum.Parse(parameter.ParameterType, argument.Value.ToString()!)
-                    : ((JsonElement)argument.Value).Deserialize(parameter.ParameterType);
-
-                args.Add(value);
+                if (parameter.ParameterType.IsEnum)
+                {
+                    if (Enum.TryParse(parameter.ParameterType, argument.Value.ToString(), true, out object? enumValue))
+                    {
+                        args.Add(enumValue);
+                    }
+                    else
+                    {
+                        var availableOptions = GetEnumOptionsAsString(parameter.ParameterType);
+                        throw new InvalidFunctionCallException($"Invalid enum value for parameter '{name}'. Available options are: {availableOptions}");
+                    }
+                }
+                else
+                {
+                    var value = ((JsonElement)argument.Value).Deserialize(parameter.ParameterType);
+                    args.Add(value);
+                }
             }
         }
 
@@ -272,7 +304,7 @@ public static class FunctionCallingHelper
     private static bool IsCompatibleReturnType<T>(Type returnType)
     {
         return typeof(T).IsAssignableFrom(returnType) ||
-               returnType.IsGenericType &&
+                returnType.IsGenericType &&
                 returnType.GetGenericTypeDefinition() == typeof(Task<>) &&
                 typeof(T).IsAssignableFrom(returnType.GetGenericArguments()[0]);
     }
@@ -334,9 +366,9 @@ public static class FunctionCallingHelper
         var v = keyValuePair.Value;
 
         var result = new Dictionary<string, object>
-        {
-            { "Type", v.Type }
-        };
+            {
+                { "Type", v.Type }
+            };
 
         if (v.Description != null)
             result["Description"] = v.Description;
@@ -346,6 +378,51 @@ public static class FunctionCallingHelper
 
         return result;
     }
+
+    /// <summary>
+    /// Gets the available enum values as a comma-separated string.
+    /// </summary>
+    /// <param name="enumType">The enum type.</param>
+    /// <returns>A string containing all available enum values.</returns>
+    private static string GetEnumOptionsAsString(Type enumType) => string.Join(", ", Enum.GetNames(enumType));
+
+    /// <summary>
+    /// Checks if the provided type is compatible with an integer type.
+    /// </summary>
+    /// <param name="type"> The type to check.</param>
+    /// <returns><c>true</c> if the type is compatible with an integer type, <c>false</c> otherwise.</returns>
+    private static bool IsIntegerType(Type type)
+        => type == typeof(int)
+        || type == typeof(short)
+        || type == typeof(long)
+        || type == typeof(byte)
+        || type == typeof(sbyte)
+        || type == typeof(ushort)
+        || type == typeof(uint)
+        || type == typeof(ulong);
+
+    /// <summary>
+    /// Checks if the provided type is compatible with a number type.
+    /// </summary>
+    /// <param name="type">The type to check.</param>
+    /// <returns><c>true</c> if the type is compatible with a number type, <c>false</c> otherwise.</returns>
+    private static bool IsNumberType(Type type)
+        => type == typeof(float)
+        || type == typeof(double)
+        || type == typeof(decimal);
+
+    /// <summary>
+    /// Checks if the provided type is compatible with a string type.
+    /// </summary>
+    /// <param name="type">The type to check.</param>
+    /// <returns><c>true</c> if the type is compatible with a string type, <c>false</c> otherwise.</returns>
+    private static bool IsStringType(Type type)
+        => type == typeof(string)
+        || type == typeof(DateTime)
+        || type == typeof(DateTimeOffset)
+        || type == typeof(Guid)
+        || type == typeof(Uri)
+        || type == typeof(TimeSpan);
 }
 
 /// <summary>

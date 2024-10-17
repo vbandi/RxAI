@@ -9,6 +9,7 @@
 
   <ItemGroup>
     <PackageReference Include="NAudio" Version="2.2.1" />
+    <PackageReference Include="Spectre.Console" Version="0.49.2-preview.0.44" />
     <ProjectReference Include="..\RxAI.Realtime\RxAI.Realtime.csproj" />
   </ItemGroup>
 
