@@ -252,7 +252,7 @@ public partial class RealtimeConversationClientRX
             ? new(endpoint, credential)
             : new(endpoint, credential, options);
 
-        return FromAzureOpenAIClient(openAIClient, azureDeployment);
+        return FromOpenAIClient(openAIClient, azureDeployment);
     }
 
     /// <summary>
@@ -280,20 +280,10 @@ public partial class RealtimeConversationClientRX
             ? new(endpoint, credential)
             : new(endpoint, credential, options);
 
-        return FromAzureOpenAIClient(openAIClient, azureDeployment);
+        return FromOpenAIClient(openAIClient, azureDeployment);
     }
 
-    /// <summary>
-    /// Creates a <see cref="RealtimeConversationClientRX"/> instance from an Azure OpenAI client.
-    /// </summary>
-    /// <param name="client">The Azure OpenAI client.</param>
-    /// <param name="azureDeployment">The Azure deployment to use.</param>
-    /// <returns>A new instance of <see cref="RealtimeConversationClientRX"/>.</returns>
-    public static RealtimeConversationClientRX FromAzureOpenAIClient(OpenAIClient client, string? azureDeployment)
-    {
-        var conversationClient = client.GetRealtimeConversationClient(azureDeployment);
-        return new RealtimeConversationClientRX(conversationClient);
-    }
+
 
     /// <summary>
     /// Creates a <see cref="RealtimeConversationClientRX"/> instance from an OpenAI API key.
@@ -315,11 +305,11 @@ public partial class RealtimeConversationClientRX
     /// Creates a <see cref="RealtimeConversationClientRX"/> instance from an OpenAI client.
     /// </summary>
     /// <param name="client">The OpenAI client.</param>
-    /// <param name="model">The model to use for the conversation.</param>
+    /// <param name="modelOrDeployment">The model to use for the conversation for OpenAI or the deployment for Azure OpenAI.</param>
     /// <returns>A new instance of <see cref="RealtimeConversationClientRX"/>.</returns>
-    public static RealtimeConversationClientRX FromOpenAIClient(OpenAIClient client, string model)
+    public static RealtimeConversationClientRX FromOpenAIClient(OpenAIClient client, string? modelOrDeployment)
     {
-        var conversationClient = client.GetRealtimeConversationClient(model)!;
+        var conversationClient = client.GetRealtimeConversationClient(modelOrDeployment)!;
         return new RealtimeConversationClientRX(conversationClient);
     }
 
