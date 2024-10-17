@@ -3,6 +3,8 @@
 using System.ClientModel;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
+using Azure.AI.OpenAI;
+using Azure.Identity;
 using OpenAI;
 using OpenAI.RealtimeConversation;
 using RxAI.Realtime.FunctionCalling;
@@ -229,6 +231,71 @@ public partial class RealtimeConversationClientRX
     }
 
     /// <summary>
+    /// Creates a <see cref="RealtimeConversationClientRX"/> instance from an Azure credentials.
+    /// </summary>
+    /// <param name="azureEndpoint">The Azure OpenAI resource endpoint to use.
+    /// This should not include model deployment or operation information.
+    /// Example: https://my-resource.openai.azure.com.</param>
+    /// <param name="azureDeployment">The Azure OpenAI deployment to use.</param>
+    /// <param name="options">Optional <see cref="AzureOpenAIClientOptions"/> to configure the client.</param>
+    /// <returns>A new instance of <see cref="RealtimeConversationClientRX"/>.</returns>
+    public static RealtimeConversationClientRX FromAzureCredential(
+        string azureEndpoint,
+        string? azureDeployment,
+        AzureOpenAIClientOptions? options = null)
+    {
+        ArgumentNullException.ThrowIfNullOrEmpty(azureEndpoint);
+
+        var endpoint = new Uri(azureEndpoint);
+        var credential = new DefaultAzureCredential();
+        AzureOpenAIClient openAIClient = options is null
+            ? new(endpoint, credential)
+            : new(endpoint, credential, options);
+
+        return FromAzureOpenAIClient(openAIClient, azureDeployment);
+    }
+
+    /// <summary>
+    /// Creates a <see cref="RealtimeConversationClientRX"/> instance from an Azure credentials.
+    /// </summary>
+    /// <param name="azureEndpoint">The Azure OpenAI resource endpoint to use.
+    /// This should not include model deployment or operation information.
+    /// Example: https://my-resource.openai.azure.com.</param>
+    /// <param name="azureDeployment">The Azure OpenAI deployment to use.</param>
+    /// <param name="apiKey">The Azure OpenAI API key credential.</param>
+    /// <param name="options">Optional <see cref="AzureOpenAIClientOptions"/> to configure the client.</param>
+    /// <returns>A new instance of <see cref="RealtimeConversationClientRX"/>.</returns>
+    public static RealtimeConversationClientRX FromAzureCredential(
+        string azureEndpoint,
+        string? azureDeployment,
+        string apiKey,
+        AzureOpenAIClientOptions? options = null)
+    {
+        ArgumentNullException.ThrowIfNullOrEmpty(azureEndpoint);
+        ArgumentNullException.ThrowIfNullOrEmpty(apiKey);
+
+        var endpoint = new Uri(azureEndpoint);
+        var credential = new ApiKeyCredential(apiKey);
+        AzureOpenAIClient openAIClient = options is null
+            ? new(endpoint, credential)
+            : new(endpoint, credential, options);
+
+        return FromAzureOpenAIClient(openAIClient, azureDeployment);
+    }
+
+    /// <summary>
+    /// Creates a <see cref="RealtimeConversationClientRX"/> instance from an Azure OpenAI client.
+    /// </summary>
+    /// <param name="client">The Azure OpenAI client.</param>
+    /// <param name="azureDeployment">The Azure deployment to use.</param>
+    /// <returns>A new instance of <see cref="RealtimeConversationClientRX"/>.</returns>
+    public static RealtimeConversationClientRX FromAzureOpenAIClient(OpenAIClient client, string? azureDeployment)
+    {
+        var conversationClient = client.GetRealtimeConversationClient(azureDeployment);
+        return new RealtimeConversationClientRX(conversationClient);
+    }
+
+    /// <summary>
     /// Creates a <see cref="RealtimeConversationClientRX"/> instance from an OpenAI API key.
     /// </summary>
     /// <param name="apiKey">The OpenAI API key.</param>
@@ -241,22 +308,6 @@ public partial class RealtimeConversationClientRX
         OpenAIClientOptions? options = null)
     {
         OpenAIClient client = options == null ? new(apiKey) : new(new ApiKeyCredential(apiKey), options);
-        return FromOpenAIClient(client, model);
-    }
-
-    /// <summary>
-    /// Creates a <see cref="RealtimeConversationClientRX"/> instance from an Azure credential.
-    /// </summary>
-    /// <param name="credential">The Azure API key credential.</param>
-    /// <param name="model">The model to use for the conversation.</param>
-    /// <param name="options">Optional OpenAI client options.</param>
-    /// <returns>A new instance of <see cref="RealtimeConversationClientRX"/>.</returns>
-    public static RealtimeConversationClientRX FromAzureCredential(
-        ApiKeyCredential credential,
-        string model = "gpt-4o-realtime-preview-2024-10-01",
-        OpenAIClientOptions? options = null)
-    {
-        OpenAIClient client = options == null ? new(credential) : new(credential, options);
         return FromOpenAIClient(client, model);
     }
 
