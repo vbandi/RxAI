@@ -9,6 +9,8 @@ namespace RxAI.Realtime;
 
 public partial class RealtimeConversationClientRX
 {
+    private Subject<string> _errorMessages = new();
+
     /// <summary>
     /// An observable sequence of all conversation updates.
     /// </summary>
@@ -153,4 +155,9 @@ public partial class RealtimeConversationClientRX
     /// Provides the current total cost of the conversation.
     /// </summary>
     public BehaviorSubject<float> TotalCost { get; } = new(0);
+
+    /// <summary>
+    /// Provides the non-fatal error messages that occur in the <see cref="RealtimeConversationClientRX" /> (such as invalid function calls).
+    /// </summary>
+    public IObservable<string> ErrorMessages => _errorMessages.AsObservable();
 }
