@@ -17,11 +17,10 @@ public static class FunctionCallingHelper
     /// Returns a <see cref="FunctionDefinition"/> from the provided method, using any
     /// <see cref="FunctionDescriptionAttribute"/> and <see cref="ParameterDescriptionAttribute"/> attributes.
     /// </summary>
-    /// <param name="type">The type of the object containing the method.</param>
     /// <param name="methodInfo">The method to create the <see cref="FunctionDefinition"/> from.</param>
     /// <param name="obj">Optional object instance for non-static methods.</param>
     /// <returns>The <see cref="FunctionDefinition"/> created.</returns>
-    public static FunctionDefinition GetFunctionDefinition(Type type, MethodInfo methodInfo, object? obj = null)
+    public static FunctionDefinition GetFunctionDefinition(MethodInfo methodInfo, object? obj = null)
     {
         var methodDescriptionAttribute = methodInfo.GetCustomAttribute<FunctionDescriptionAttribute>();
 
@@ -34,7 +33,7 @@ public static class FunctionCallingHelper
                 Properties = [],
                 Required = []
             },
-            OwnerType = type,
+            OwnerType = methodInfo.DeclaringType,
             Owner = obj != null ? new WeakReference<object>(obj) : null
         };
 
@@ -79,19 +78,19 @@ public static class FunctionCallingHelper
     public static List<FunctionDefinition> GetFunctionDefinitions<T>() => GetFunctionDefinitions(typeof(T));
 
     /// <summary>
-    /// Enumerates the methods in the provided type, and returns a <see cref="List{T}"/> of
-    /// <see cref="FunctionDefinition"/> for all methods.
+    /// Enumerates the static and instance methods in the provided type, and returns a <see cref="List{T}"/> of
+    /// <see cref="FunctionDefinition"/> for all methods. Instance methods are only added if an object instance is provided.
     /// </summary>
     /// <param name="type">The type to analyze.</param>
-    /// <param name="obj">Optional object instance for non-static methods.</param>
+    /// <param name="obj">Optional object instance for instance methods.</param>
     /// <returns>A list of <see cref="FunctionDefinition"/> objects.</returns>
     public static List<FunctionDefinition> GetFunctionDefinitions(Type type, object? obj = null)
     {
-        var methods = type.GetMethods();
+        var methods = type.GetMethods(BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.FlattenHierarchy | BindingFlags.Static | (obj != null ? BindingFlags.Instance : 0));
 
         var result = methods
             .Where(method => method.GetCustomAttribute<FunctionDescriptionAttribute>() != null)
-            .Select(method => GetFunctionDefinition(type, method, obj)).ToList();
+            .Select(method => GetFunctionDefinition(method, obj)).ToList();
 
         return result;
     }
@@ -130,8 +129,7 @@ public static class FunctionCallingHelper
     {
         var (obj, methodInfo, args) = PrepareMethodInvocation<T>(functionCall, functionDefinition, allowPartialArguments);
 
-        var invocationTargetObject = functionDefinition.IsOwnerStatic ? null : obj;
-        var invocationResult = methodInfo.Invoke(invocationTargetObject, [.. args]);
+        var invocationResult = methodInfo.Invoke(functionDefinition.Owner, [.. args]);
 
         var returnType = methodInfo.ReturnType;
 
@@ -140,7 +138,8 @@ public static class FunctionCallingHelper
             await (Task)invocationResult!;
             return default;
         }
-        else if (returnType.IsGenericType && returnType.GetGenericTypeDefinition() == typeof(Task<>)) // Generic Task<T> type
+
+        if (returnType.IsGenericType && returnType.GetGenericTypeDefinition() == typeof(Task<>)) // Generic Task<T> type
         {
             var task = (Task)invocationResult!;
             await task;
@@ -148,10 +147,9 @@ public static class FunctionCallingHelper
             var resultProperty = task.GetType().GetProperty("Result");
             return (T?)resultProperty?.GetValue(task);
         }
-        else // Non-Task type
-        {
-            return (T?)invocationResult;
-        }
+
+        // Non-Task type
+        return (T?)invocationResult;
     }
 
     /// <summary>
@@ -163,13 +161,13 @@ public static class FunctionCallingHelper
     /// <returns>A <see cref="FunctionProperty"/> object.</returns>
     private static FunctionProperty CreateFunctionProperty(ParameterInfo parameter, ParameterDescriptionAttribute? parameterDescriptionAttribute, string? description)
     {
-        return parameter.ParameterType switch
+        FunctionProperty result = parameter.ParameterType switch
         {
-            var type when IsIntegerType(type) => new FunctionProperty { Type = "integer", Description = description },
-            var type when IsNumberType(type) => new FunctionProperty { Type = "number", Description = description },
-            var type when type == typeof(bool) => new FunctionProperty { Type = "boolean", Description = description },
-            var type when IsStringType(type) => new FunctionProperty { Type = "string", Description = description },
-            var type when type.IsEnum => new FunctionProperty
+            var type when IsIntegerType(type) => new() { Type = "integer", Description = description },
+            var type when IsNumberType(type) => new() { Type = "number", Description = description },
+            var type when type == typeof(bool) => new() { Type = "boolean", Description = description },
+            var type when IsStringType(type) => new () { Type = "string", Description = description },
+            var type when type.IsEnum => new()
             {
                 Type = "string",
                 Enum = string.IsNullOrEmpty(parameterDescriptionAttribute?.Enum) ?
@@ -179,6 +177,8 @@ public static class FunctionCallingHelper
             },
             _ => throw new Exception($"Parameter type '{parameter.ParameterType}' not supported")
         };
+
+        return result;
     }
 
     /// <summary>
@@ -198,18 +198,9 @@ public static class FunctionCallingHelper
         ArgumentNullException.ThrowIfNull(functionCall);
         functionCall.ThrowIfNameIsNull();
 
-        MethodInfo methodInfo;
-        object? obj;
-        if (functionDefinition.IsOwnerStatic)
-        {
-            obj = null;
-            methodInfo = FindMethod(functionDefinition.OwnerType!, functionCall.Name);
-        }
-        else
-        {
-            obj = functionDefinition.GetOwnerOrThrow();
-            methodInfo = FindMethod(obj, functionCall.Name);
-        }
+        object? obj = functionDefinition.Owner;
+        
+        var methodInfo = obj == null ? FindMethod(functionDefinition.OwnerType!, functionCall.Name) : FindMethod(obj, functionCall.Name);
 
         if (!IsCompatibleReturnType<T>(methodInfo.ReturnType))
         {
@@ -219,13 +210,11 @@ public static class FunctionCallingHelper
 
         var parameters = methodInfo.GetParameters().ToList();
 
-        if (TryParseArguments(functionCall.Arguments, out var arguments, allowPartialArguments ? "\"}" : null))
-        {
-            var args = PrepareArguments(parameters, arguments);
-            return (obj, methodInfo, args);
-        }
+        if (!TryParseArguments(functionCall.Arguments, out var arguments, allowPartialArguments ? "\"}" : null))
+            throw new InvalidFunctionCallException("Failed to parse function arguments.");
 
-        throw new InvalidFunctionCallException("Failed to parse function arguments.");
+        var args = PrepareArguments(parameters, arguments);
+        return (obj, methodInfo, args);
     }
 
     /// <summary>
@@ -237,11 +226,10 @@ public static class FunctionCallingHelper
     /// <exception cref="InvalidFunctionCallException">If the method is not found.</exception>
     private static MethodInfo FindMethod(object obj, string functionName)
     {
-        return obj.GetType().GetMethod(functionName)
-            ?? Array.Find(
-                obj.GetType().GetMethods(),
-                methodInfo => methodInfo.GetCustomAttribute<FunctionDescriptionAttribute>()?.Name == functionName)
-            ?? throw new InvalidFunctionCallException($"Method '{functionName}' on type '{obj.GetType()}' not found.");
+        if (obj is null)
+            throw new InvalidFunctionCallException("Object is null.");
+
+        return FindMethod(obj.GetType(), functionName);
     }
 
     /// <summary>

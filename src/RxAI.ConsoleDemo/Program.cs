@@ -4,6 +4,7 @@ using System.Text;
 using OpenAI.RealtimeConversation;
 using RxAI.Realtime.FunctionCalling;
 using RxAI.Realtime;
+using Spectre.Console;
 
 Console.OutputEncoding = Encoding.UTF8;
 
@@ -24,21 +25,24 @@ ConversationSessionOptions options = new()
     InputTranscriptionOptions = new() { Model = ConversationTranscriptionModel.Whisper1 },
 };
 
+// Use type for static functions, or instance for both static and instance functions
+var functionDefinitions = FunctionCallingHelper.GetFunctionDefinitions(typeof(Calculator));
+
 // Initialize the conversation
-await conversation.InitializeSessionAsync(options, FunctionCallingHelper.GetFunctionDefinitions(typeof(Calculator)));
+await conversation.InitializeSessionAsync(options, functionDefinitions);
 
 // Transcription updates
-conversation.InputTranscriptionFinishedUpdates.Subscribe(t => Console.WriteLine(t.Transcript));
-conversation.OutputTranscriptionFinishedUpdates.Subscribe(u => Console.WriteLine());
-conversation.OutputTranscriptionDeltaUpdates.Subscribe(u => Console.Write(u.Delta));
+conversation.InputTranscriptionFinishedUpdates.Subscribe(t => AnsiConsole.MarkupLine($"[yellow]{t.Transcript}[/]"));
+conversation.OutputTranscriptionFinishedUpdates.Subscribe(u => AnsiConsole.WriteLine());
+conversation.OutputTranscriptionDeltaUpdates.Subscribe(u => AnsiConsole.Markup($"[white]{u.Delta}[/]"));
 
 // Function updates
-conversation.FunctionCallStarted.Subscribe(f => Console.WriteLine($"Function call: {f.Name}({f.Arguments})"));
-conversation.FunctionCallFinished.Subscribe(f => Console.WriteLine($"Function call finished: {f.result}"));
+conversation.FunctionCallStarted.Subscribe(f => AnsiConsole.MarkupLine($"[green]Function call: {f.Name}({f.Arguments})[/]"));
+conversation.FunctionCallFinished.Subscribe(f => AnsiConsole.MarkupLine($"[green]Function call finished: {f.result}[/]"));
 
 // Cost updates
 conversation.SetupCost(5f / 1_000_000, 20f / 1_000_000, 100f / 1_000_000, 200f / 1_000_000);
-conversation.TotalCost.Subscribe(c => Console.WriteLine($"Total cost: {c}"));
+conversation.TotalCost.Subscribe(c => AnsiConsole.MarkupLine($"[gray]Total cost: {c}[/]"));
 
 // Setup speaker output
 SpeakerOutput speakerOutput = new();
@@ -47,6 +51,9 @@ conversation.AudioDeltaUpdates.Subscribe(d => speakerOutput.EnqueueForPlayback(d
 // Setup microphone input
 MicrophoneAudioStream microphone = MicrophoneAudioStream.Start();
 await conversation.SendAudioAsync(microphone);
+
+// Show potential errors
+conversation.ErrorMessages.Subscribe(txt => AnsiConsole.MarkupLine($"[red]Error: {txt}[/]"));
 
 await conversation.StartResponseTurnAsync();
 
@@ -57,17 +64,22 @@ while (true)
     await Task.Delay(10);
 }
 
-public static class Calculator
+
+public class Calculator
 {
     [FunctionDescription("Get a random number within a specified range")]
     public static int GetRandomNumber(
         [ParameterDescription("min")] int min,
         [ParameterDescription("max")] int max)
-        => new Random().Next(min, max);
+    {
+        return new Random().Next(min, max);
+    }
 
     [FunctionDescription("Add two numbers together")]
     public static int Add(
         [ParameterDescription("The first number to add")] int a,
         [ParameterDescription("The second number to add")] int b)
-        => a + b;
+    {
+        return a + b;
+    }
 }

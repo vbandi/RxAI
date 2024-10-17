@@ -281,7 +281,7 @@ public partial class RealtimeConversationClientRX
     {
         if (!_functionDefinitions.TryGetValue(update.FunctionName, out var functionDefinition))
         {
-            Console.WriteLine($"Function '{update.FunctionName}' not found in function definitions.");  // TODO: use iobservable instead of Console
+            _errorMessages.OnNext($"Function '{update.FunctionName}' not found in function definitions."); 
             return;
         }
 
@@ -300,7 +300,7 @@ public partial class RealtimeConversationClientRX
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error calling function '{update.FunctionName}': {ex.Message}");
+            _errorMessages.OnNext($"Error calling function '{update.FunctionName}': {ex.Message}");
             await SendFunctionMessageAsync(update.FunctionCallId, $"An error occured during function execution. Message: {ex.Message}");
             await StartResponseTurnAsync();
         }
