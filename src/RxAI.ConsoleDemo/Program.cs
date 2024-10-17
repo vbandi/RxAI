@@ -4,18 +4,12 @@ using System.Text;
 using OpenAI.RealtimeConversation;
 using RxAI.Realtime.FunctionCalling;
 using RxAI.Realtime;
+using OpenAI;
+using Azure.AI.OpenAI;
 
 Console.OutputEncoding = Encoding.UTF8;
 
-string? openAIKey = Environment.GetEnvironmentVariable("OPENAI_API_KEY");
-
-if (string.IsNullOrEmpty(openAIKey))
-{
-    Console.WriteLine("Please set the OPENAI_API_KEY environment variable.");
-    return;
-}
-
-RealtimeConversationClientRX conversation = RealtimeConversationClientRX.FromOpenAIKey(openAIKey);
+var conversation = GetRealtimeConversationClientRX();
 
 ConversationSessionOptions options = new()
 {
@@ -56,6 +50,42 @@ Console.WriteLine("Starting conversation...");
 while (true)
 {
     await Task.Delay(10);
+}
+
+static RealtimeConversationClientRX GetRealtimeConversationClientRX(
+    AzureOpenAIClientOptions? azureOpenAIClientOptions = null,
+    OpenAIClientOptions? openAIClientOptions = null)
+{
+    string? aoaiEndpoint = Environment.GetEnvironmentVariable("AZURE_OPENAI_ENDPOINT");
+    string? aoaiUseEntra = Environment.GetEnvironmentVariable("AZURE_OPENAI_USE_ENTRA");
+    string? aoaiDeployment = Environment.GetEnvironmentVariable("AZURE_OPENAI_DEPLOYMENT");
+    string? aoaiApiKey = Environment.GetEnvironmentVariable("AZURE_OPENAI_API_KEY");
+    string? oaiApiKey = Environment.GetEnvironmentVariable("OPENAI_API_KEY");
+
+    if (aoaiEndpoint is not null && bool.TryParse(aoaiUseEntra, out bool useEntra) && useEntra)
+    {
+        return RealtimeConversationClientRX.FromAzureCredential(aoaiEndpoint, aoaiDeployment, azureOpenAIClientOptions);
+    }
+    else if (aoaiEndpoint is not null && aoaiApiKey is not null)
+    {
+        return RealtimeConversationClientRX.FromAzureCredential(aoaiEndpoint, aoaiDeployment, aoaiApiKey, azureOpenAIClientOptions);
+    }
+    else if (aoaiEndpoint is not null)
+    {
+        throw new InvalidOperationException(
+            "AZURE_OPENAI_ENDPOINT configured without AZURE_OPENAI_USE_ENTRA=true or AZURE_OPENAI_API_KEY.");
+    }
+    else if (oaiApiKey is not null)
+    {
+        return RealtimeConversationClientRX.FromOpenAIKey(oaiApiKey, options: openAIClientOptions);
+    }
+    else
+    {
+        throw new InvalidOperationException(
+            "No environment configuration present. Please provide one of:\n"
+                + " - AZURE_OPENAI_ENDPOINT with AZURE_OPENAI_USE_ENTRA=true or AZURE_OPENAI_API_KEY\n"
+                + " - OPENAI_API_KEY");
+    }
 }
 
 public class Calculator
