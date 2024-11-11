@@ -261,6 +261,18 @@ public partial class RealtimeConversationClientRX
     }
 
     /// <summary>
+    /// Creates a RealtimeConverstionClientRX instance from the default configuration 
+    /// stored in the system's environment variables.
+    /// This will construct a client for Azure OpenAI (including EntraID auth) or OpenAI .
+    /// </summary>
+    /// <returns></returns>
+    public static RealtimeConversationClientRX GetConfiguredClient()
+    {
+        var conversationClient = RealtimeClientProvider.GetConfiguredClient();
+        return new RealtimeConversationClientRX(conversationClient);
+    }
+
+    /// <summary>
     /// Creates a <see cref="RealtimeConversationClientRX"/> instance from an OpenAI client.
     /// </summary>
     /// <param name="client">The OpenAI client.</param>
