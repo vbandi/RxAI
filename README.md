@@ -38,13 +38,13 @@ To run the RxAI.ConsoleDemo and interact with the AI:
 1. Set your OpenAI API key as an environment variable named `OPENAI_API_KEY`. This must be done before launching Visual Studio.
    - On Windows: Open Command Prompt and run `setx OPENAI_API_KEY your_api_key_here`
    - On macOS/Linux: Add `export OPENAI_API_KEY=your_api_key_here` to your shell profile file (e.g., ~/.bash_profile, ~/.zshrc)
-2. Open the RxAI.sln solution file in Visual Studio.
-3. Set the RxAI.ConsoleDemo project as the startup project.
+2. Open the src/CSharp/RxAI.sln solution file in Visual Studio.
+3. Set the src/CSharp/RxAI.ConsoleDemo project as the startup project.
 4. Press F5 or click "Start Debugging" to run the demo.
 
 ### Using Command Line
 
-1. Navigate to the RxAI.ConsoleDemo project directory in your terminal.
+1. Navigate to the src/CSharp/RxAI.ConsoleDemo project directory in your terminal.
 2. Set your OpenAI API key as an environment variable:
    - On Windows: `set OPENAI_API_KEY=your_api_key_here`
    - On macOS/Linux: `export OPENAI_API_KEY=your_api_key_here`
