@@ -1,11 +1,10 @@
-﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.11.35303.130
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RxAI.ConsoleDemo", "RxAI.ConsoleDemo\RxAI.ConsoleDemo.csproj", "{FC79338F-E0BC-430F-B639-8A206905B032}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RxAI.ConsoleDemo", "CSharp\RxAI.ConsoleDemo\RxAI.ConsoleDemo.csproj", "{FC79338F-E0BC-430F-B639-8A206905B032}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RxAI.Realtime", "RxAI.Realtime\RxAI.Realtime.csproj", "{4EA36087-E944-4B5E-9FFA-31AF25C09C06}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RxAI.Realtime", "CSharp\RxAI.Realtime\RxAI.Realtime.csproj", "{4EA36087-E944-4B5E-9FFA-31AF25C09C06}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
