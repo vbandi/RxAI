@@ -8,15 +8,23 @@ using Spectre.Console;
 
 Console.OutputEncoding = Encoding.UTF8;
 
-string? openAIKey = Environment.GetEnvironmentVariable("OPENAI_API_KEY");
+// OpenAI
+//var openAIKey = Environment.GetEnvironmentVariable("OPENAI_API_KEY");
+//
+//if (openAIKey is null)
+//    throw new InvalidOperationException("OPENAI_API_KEY environment variable not set.");
+//
+//var conversation = RealtimeConversationClientRX.FromOpenAIKey(openAIKey);
 
-if (string.IsNullOrEmpty(openAIKey))
-{
-    Console.WriteLine("Please set the OPENAI_API_KEY environment variable.");
-    return;
-}
+// Azure OpenAI 
+string? aoaiEndpoint = Environment.GetEnvironmentVariable("AZURE_OPENAI_API_ENDPOINT");
+string? aoaiDeployment = Environment.GetEnvironmentVariable("AZURE_OPENAI_API_DEPLOYMENT");
+string? aoaiApiKey = Environment.GetEnvironmentVariable("AZURE_OPENAI_API_KEY");
 
-RealtimeConversationClientRX conversation = RealtimeConversationClientRX.FromOpenAIKey(openAIKey);
+if (aoaiEndpoint is null || aoaiDeployment is null || aoaiApiKey is null)
+    throw new InvalidOperationException("AZURE_OPENAI_API_ENDPOINT, AZURE_OPENAI_API_DEPLOYMENT, and AZURE_OPENAI_API_KEY environment variables must be set.");
+
+var conversation = RealtimeConversationClientRX.FromAzureCredential(aoaiEndpoint, aoaiDeployment, aoaiApiKey);
 
 ConversationSessionOptions options = new()
 {
@@ -63,7 +71,6 @@ while (true)
 {
     await Task.Delay(10);
 }
-
 
 public class Calculator
 {
