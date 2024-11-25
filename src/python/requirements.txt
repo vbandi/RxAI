@@ -1,0 +1,8 @@
+azure-core==1.31.0
+sounddevice==0.5.1
+numpy==2.1.2
+rx==3.2.0
+python-dotenv==1.0.1
+nest-asyncio==1.6.0
+jupyter_client==8.6.3
+jupyter_core==5.7.2

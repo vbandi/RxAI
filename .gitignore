@@ -398,3 +398,6 @@ FodyWeavers.xsd
 *.sln.iml
 bak/RealtimeConversationClientRX.cs
 bak/RealtimeConversationClientRX.Observables.cs
+
+# .env file for python
+.env
