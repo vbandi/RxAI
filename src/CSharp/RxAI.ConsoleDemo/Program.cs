@@ -8,28 +8,28 @@ using Spectre.Console;
 
 Console.OutputEncoding = Encoding.UTF8;
 
-// OpenAI
-//var openAIKey = Environment.GetEnvironmentVariable("OPENAI_API_KEY");
-//
-//if (openAIKey is null)
-//    throw new InvalidOperationException("OPENAI_API_KEY environment variable not set.");
-//
-//var conversation = RealtimeConversationClientRX.FromOpenAIKey(openAIKey);
+//OpenAI
+var openAIKey = Environment.GetEnvironmentVariable("OPENAI_API_KEY");
+
+if (openAIKey is null)
+    throw new InvalidOperationException("OPENAI_API_KEY environment variable not set.");
+
+var conversation = RealtimeConversationClientRX.FromOpenAIKey(openAIKey);
 
 // Azure OpenAI 
-string? aoaiEndpoint = Environment.GetEnvironmentVariable("AZURE_OPENAI_API_ENDPOINT");
-string? aoaiDeployment = Environment.GetEnvironmentVariable("AZURE_OPENAI_API_DEPLOYMENT");
-string? aoaiApiKey = Environment.GetEnvironmentVariable("AZURE_OPENAI_API_KEY");
+//string? aoaiEndpoint = Environment.GetEnvironmentVariable("AZURE_OPENAI_API_ENDPOINT");
+//string? aoaiDeployment = Environment.GetEnvironmentVariable("AZURE_OPENAI_API_DEPLOYMENT");
+//string? aoaiApiKey = Environment.GetEnvironmentVariable("AZURE_OPENAI_API_KEY");
 
-if (aoaiEndpoint is null || aoaiDeployment is null || aoaiApiKey is null)
-    throw new InvalidOperationException("AZURE_OPENAI_API_ENDPOINT, AZURE_OPENAI_API_DEPLOYMENT, and AZURE_OPENAI_API_KEY environment variables must be set.");
+//if (aoaiEndpoint is null || aoaiDeployment is null || aoaiApiKey is null)
+//    throw new InvalidOperationException("AZURE_OPENAI_API_ENDPOINT, AZURE_OPENAI_API_DEPLOYMENT, and AZURE_OPENAI_API_KEY environment variables must be set.");
 
-var conversation = RealtimeConversationClientRX.FromAzureCredential(aoaiEndpoint, aoaiDeployment, aoaiApiKey);
+//var conversation = RealtimeConversationClientRX.FromAzureCredential(aoaiEndpoint, aoaiDeployment, aoaiApiKey);
 
 ConversationSessionOptions options = new()
 {
     //ContentModalities = ConversationContentModalities.Text,
-    Instructions = "You are an annoyingly rude assistant. Use lots of sarcasm and emojis.",
+    Instructions = "You are an annoyingly rude assistant. Use lots of sarcasm and NO emojis.",
     InputTranscriptionOptions = new() { Model = ConversationTranscriptionModel.Whisper1 },
 };
 
@@ -41,8 +41,8 @@ await conversation.InitializeSessionAsync(options, functionDefinitions);
 
 // Transcription updates
 conversation.InputTranscriptionFinishedUpdates.Subscribe(t => AnsiConsole.MarkupLine($"[yellow]{t.Transcript}[/]"));
-conversation.OutputTranscriptionFinishedUpdates.Subscribe(u => AnsiConsole.WriteLine());
-conversation.OutputTranscriptionDeltaUpdates.Subscribe(u => AnsiConsole.Markup($"[white]{u.Delta}[/]"));
+conversation.ItemStreamingFinishedUpdates.Subscribe(u => AnsiConsole.WriteLine());
+conversation.ItemStreamingPartDeltaUpdates.Subscribe(u => AnsiConsole.Markup($"[white]{u.AudioTranscript}[/]"));
 
 // Function updates
 conversation.FunctionCallStarted.Subscribe(f => AnsiConsole.MarkupLine($"[green]Function call: {f.Name}({f.Arguments})[/]"));
@@ -54,7 +54,7 @@ conversation.TotalCost.Subscribe(c => AnsiConsole.MarkupLine($"[gray]Total cost:
 
 // Setup speaker output
 SpeakerOutput speakerOutput = new();
-conversation.AudioDeltaUpdates.Subscribe(d => speakerOutput.EnqueueForPlayback(d.Delta));
+conversation.AudioDeltaUpdates.Subscribe(d => speakerOutput.EnqueueForPlayback(d));
 
 // Setup microphone input
 MicrophoneAudioStream microphone = MicrophoneAudioStream.Start();

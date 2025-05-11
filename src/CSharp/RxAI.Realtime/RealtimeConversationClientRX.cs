@@ -3,8 +3,6 @@
 using System.ClientModel;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
-using Azure.AI.OpenAI;
-using Azure.Identity;
 using OpenAI;
 using OpenAI.RealtimeConversation;
 using RxAI.Realtime.FunctionCalling;
@@ -36,7 +34,7 @@ public partial class RealtimeConversationClientRX
     {
         _client = client;
 
-        ItemFinishedUpdates
+        ItemStreamingFinishedUpdates
             .Where(update => !string.IsNullOrEmpty(update.FunctionName))
             .Subscribe(update => HandleFunctionCall(update).FireAndForget());
     }
@@ -158,7 +156,7 @@ public partial class RealtimeConversationClientRX
     public async Task SendAudioAsync(Stream audio, CancellationToken cancellationToken = default)
     {
         VerifySession();
-        await _session!.SendAudioAsync(audio, cancellationToken);
+        await _session!.SendInputAudioAsync(audio, cancellationToken);
     }
 
     /// <summary>
@@ -170,7 +168,7 @@ public partial class RealtimeConversationClientRX
     public async Task StartResponseTurnAsync(CancellationToken cancellationToken = default)
     {
         VerifySession();
-        await _session!.StartResponseTurnAsync(cancellationToken);
+        await _session!.StartResponseAsync(cancellationToken);
     }
 
     /// <summary>
@@ -183,7 +181,7 @@ public partial class RealtimeConversationClientRX
     public async Task SendUserMessageAsync(string text, CancellationToken cancellationToken = default)
     {
         VerifySession();
-        ConversationItem item = ConversationItem.CreateUserMessage([ConversationContentPart.FromInputText(text)]);
+        ConversationItem item = ConversationItem.CreateUserMessage([ConversationContentPart.CreateInputTextPart(text)]);
         await _session!.AddItemAsync(item, cancellationToken);
     }
 
@@ -197,7 +195,7 @@ public partial class RealtimeConversationClientRX
     public async Task SendSystemMessageAsync(string text, CancellationToken cancellationToken = default)
     {
         VerifySession();
-        ConversationItem item = ConversationItem.CreateSystemMessage(null, [ConversationContentPart.FromInputText(text)]);
+        ConversationItem item = ConversationItem.CreateSystemMessage([ConversationContentPart.CreateInputTextPart(text)]);
         await _session!.AddItemAsync(item, cancellationToken);
     }
 
@@ -211,7 +209,7 @@ public partial class RealtimeConversationClientRX
     public async Task SendAssistantMessageAsync(string text, CancellationToken cancellationToken = default)
     {
         VerifySession();
-        ConversationItem item = ConversationItem.CreateAssistantMessage([ConversationContentPart.FromInputText(text)]);
+        ConversationItem item = ConversationItem.CreateAssistantMessage([ConversationContentPart.CreateInputTextPart(text)]);
         await _session!.AddItemAsync(item, cancellationToken);
     }
 
@@ -230,7 +228,7 @@ public partial class RealtimeConversationClientRX
         await _session!.AddItemAsync(item, cancellationToken);
     }
 
-    /// <summary>
+    /*/// <summary>
     /// Creates a <see cref="RealtimeConversationClientRX"/> instance from an Azure credentials.
     /// </summary>
     /// <param name="azureEndpoint">The Azure OpenAI resource endpoint to use.
@@ -281,7 +279,7 @@ public partial class RealtimeConversationClientRX
             : new(endpoint, credential, options);
 
         return FromOpenAIClient(openAIClient, azureDeployment);
-    }
+    }*/
 
 
 
@@ -294,7 +292,7 @@ public partial class RealtimeConversationClientRX
     /// <returns>A new instance of <see cref="RealtimeConversationClientRX"/>.</returns>
     public static RealtimeConversationClientRX FromOpenAIKey(
         string apiKey,
-        string model = "gpt-4o-realtime-preview-2024-10-01",
+        string model = "gpt-4o-realtime-preview",
         OpenAIClientOptions? options = null)
     {
         OpenAIClient client = options == null ? new(apiKey) : new(new ApiKeyCredential(apiKey), options);
@@ -318,7 +316,7 @@ public partial class RealtimeConversationClientRX
     /// </summary>
     /// <param name="update">The conversation item finished update.</param>
     /// <returns>A task that represents the asynchronous operation.</returns>
-    private async Task HandleFunctionCall(ConversationItemFinishedUpdate update)
+    private async Task HandleFunctionCall(ConversationItemStreamingFinishedUpdate update)
     {
         if (!_functionDefinitions.TryGetValue(update.FunctionName, out var functionDefinition))
         {
