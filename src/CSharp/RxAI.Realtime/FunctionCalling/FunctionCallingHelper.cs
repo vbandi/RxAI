@@ -129,7 +129,7 @@ public static class FunctionCallingHelper
     {
         var (obj, methodInfo, args) = PrepareMethodInvocation<T>(functionCall, functionDefinition, allowPartialArguments);
 
-        var invocationResult = methodInfo.Invoke(functionDefinition.Owner, [.. args]);
+        var invocationResult = methodInfo.Invoke(obj, [.. args]);
 
         var returnType = methodInfo.ReturnType;
 
@@ -198,9 +198,12 @@ public static class FunctionCallingHelper
         ArgumentNullException.ThrowIfNull(functionCall);
         functionCall.ThrowIfNameIsNull();
 
-        object? obj = functionDefinition.Owner;
+        if (!functionDefinition.Owner.TryGetTarget(out object? obj))
+        {
+            throw new InvalidFunctionCallException($"Function '{functionCall.Name}' is not available. The owner object is no longer available.");
+        }
         
-        var methodInfo = obj == null ? FindMethod(functionDefinition.OwnerType!, functionCall.Name) : FindMethod(obj, functionCall.Name);
+        var methodInfo = FindMethod(functionDefinition.OwnerType!, functionCall.Name);
 
         if (!IsCompatibleReturnType<T>(methodInfo.ReturnType))
         {
@@ -224,12 +227,12 @@ public static class FunctionCallingHelper
     /// <param name="functionName">The name of the function to find.</param>
     /// <returns>The <see cref="MethodInfo"/> of the found method.</returns>
     /// <exception cref="InvalidFunctionCallException">If the method is not found.</exception>
-    private static MethodInfo FindMethod(object obj, string functionName)
+    private static MethodInfo FindMethod(object? obj, string functionName)
     {
         if (obj is null)
             throw new InvalidFunctionCallException("Object is null.");
 
-        return FindMethod(obj.GetType(), functionName);
+        return FindMethod(obj!.GetType(), functionName);
     }
 
     /// <summary>
@@ -286,8 +289,18 @@ public static class FunctionCallingHelper
                 }
                 else
                 {
-                    var value = ((JsonElement)argument.Value).Deserialize(parameter.ParameterType);
-                    args.Add(value);
+                    try
+                    {
+                       var value = ((JsonElement)argument.Value).Deserialize(parameter.ParameterType);
+                       args.Add(value);
+                    }
+                    catch
+                    {
+                        // add the default value of parameter.ParameterType instead
+                        args.Add(parameter.ParameterType.IsValueType
+                            ? Activator.CreateInstance(parameter.ParameterType)
+                            : null);
+                    }
                 }
             }
         }

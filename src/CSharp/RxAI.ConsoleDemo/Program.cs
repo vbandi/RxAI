@@ -14,7 +14,7 @@ var openAIKey = Environment.GetEnvironmentVariable("OPENAI_API_KEY");
 if (openAIKey is null)
     throw new InvalidOperationException("OPENAI_API_KEY environment variable not set.");
 
-var conversation = RealtimeConversationClientRX.FromOpenAIKey(openAIKey);
+var conversation = RealtimeConversationClientRX.FromOpenAIKey(openAIKey, "gpt-4o-mini-realtime-preview");
 
 // Azure OpenAI 
 //string? aoaiEndpoint = Environment.GetEnvironmentVariable("AZURE_OPENAI_API_ENDPOINT");
@@ -49,7 +49,9 @@ conversation.FunctionCallStarted.Subscribe(f => AnsiConsole.MarkupLine($"[green]
 conversation.FunctionCallFinished.Subscribe(f => AnsiConsole.MarkupLine($"[green]Function call finished: {f.result}[/]"));
 
 // Cost updates
-conversation.SetupCost(5f / 1_000_000, 20f / 1_000_000, 100f / 1_000_000, 200f / 1_000_000);
+
+// conversation.SetupCost(5f / 1_000_000, 20f / 1_000_000, 40f / 1_000_000, 80f / 1_000_000);  // GPT-4o, as of 5/11/2025
+conversation.SetupCost(0.6f / 1_000_000, 2.4f / 1_000_000, 10f / 1_000_000, 20f / 1_000_000); // GPT-4o-mini, as of 5/11/2025
 conversation.TotalCost.Subscribe(c => AnsiConsole.MarkupLine($"[gray]Total cost: {c}[/]"));
 
 // Setup speaker output
